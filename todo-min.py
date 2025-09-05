@@ -1,6 +1,6 @@
 
 # 作成開始日：2025年9月5日
-# 作成完了日：2025年
+# 作成完了日：2025年9月5日
 # 著作者名：yuuki-hiroshima
 # All rights reserved.
 
