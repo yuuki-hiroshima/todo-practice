@@ -1,9 +1,5 @@
 [
   {
-    "title": "テスト",
-    "done": false
-  },
-  {
     "title": "テスト2",
     "done": false
   },
@@ -22,5 +18,9 @@
   {
     "title": "テスト",
     "done": true
+  },
+  {
+    "title": "新規テスト",
+    "done": false
   }
 ]

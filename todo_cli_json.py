@@ -59,9 +59,16 @@ def remove_task(tasks):                         # 指定番号のタスクを削
         return
     idx = int(num) -1                           # 0ではなく1からカウントするため
     if 0 <= idx < len(tasks):                   # 範囲のチェック
-        removed = tasks.pop(idx)                # 要素を取り除く
-        save_tasks(tasks)                       # 保存
-        print(f"削除しました：{removed.get('title')}")
+        candidate = tasks.pop(idx)                # popは取り除いた要素を返す
+        title = candidate.get("title")
+
+        confirm = input(f"本当に削除しますか？（y/n）：{title} > ").strip().lower()
+        if confirm == "y":
+            save_tasks(tasks)                       # 保存
+            print(f"削除しました：{title}")
+        else:                                   # 取り消す場合は元の位置に戻す（UX的に親切）
+            tasks.insert(idx, candidate)
+            print("削除を取り消しました。")
     else:
         print("その番号はありません。")
 
