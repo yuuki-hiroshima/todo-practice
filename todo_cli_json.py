@@ -29,7 +29,7 @@ def save_tasks(tasks):          # タスク一覧をファイルへ保存する
         json.dump(tasks, f, ensure_ascii=False, indent=2)   # ensure_ascii=False: 日本語をそのまま保存。indent=2: 見やすい整形出力
 
 def show_menu(tasks):           # メニュー表示を関数にまとめて可能性を上げる
-    print(f"\n1) 追加  2) 一覧  3) 削除  4) 完了切替  5) 終了  6) 表示切替   (現在: {len(tasks)}件)")   # 機能の追加にともない、「6) 表示切替」を追加
+    print(f"\n1) 追加  2) 一覧  3) 削除  4) 完了切替  5) 終了  6) 表示切替  7) 編集   (現在: {len(tasks)}件)")   # 機能の追加にともない、「6) 表示切替」「7) 編集」を追加
 
 def list_tasks(tasks):          # タスク一覧を番号付きで表示
     if not tasks:               # リストが空なら
@@ -59,7 +59,7 @@ def remove_task(tasks):                         # 指定番号のタスクを削
         return
     idx = int(num) -1                           # 0ではなく1からカウントするため
     if 0 <= idx < len(tasks):                   # 範囲のチェック
-        candidate = tasks.pop(idx)                # popは取り除いた要素を返す
+        candidate = tasks.pop(idx)                # 機能追加：削除前に確認する機能。popは取り除いた要素を返す
         title = candidate.get("title")
 
         confirm = input(f"本当に削除しますか？（y/n）：{title} > ").strip().lower()
@@ -102,10 +102,31 @@ def filter_and_list(tasks):                     # 機能追加：表示フィル
 
     list_tasks(filtered)                                          # 既存の一覧表示回数を再利用（DRYの考え方）
 
+def edit_tasks(tasks):                          # 機能追加：編集
+    if not tasks:
+        print("編集できるタスクがありません。")
+        return
+    num = input("編集する番号: ")
+    if not num.isdigit():
+        print("数字を入力してください。")
+        return
+    idx = int(num) - 1
+    if 0 <= idx < len(tasks):
+        old = tasks(idx).get("title")
+        new = input(f"新しいタイトル（空でキャンセル）：（現在：{old}）>").strip()
+        if not new:
+            print("編集をキャンセルしました。")
+            return
+        tasks[idx]["title"] = new
+        save_tasks(tasks)
+        print(f"編集しました：{old} → {new}")
+    else:
+        print("その番号はありません。")
+
 def main():                                     # アプリの入口
     tasks = load_tasks()                        # 起動時に保存ファイルから読み込み
     while True:                                 # メニューを繰り返し表示
-        show_menu(tasks)                        # 現在件数つきメニュー???
+        show_menu(tasks)                        # メニュー内容
         choice = input("番号を入力: ")            # ユーザーの選択
         if choice == "1":
             add_task(tasks)
@@ -120,6 +141,8 @@ def main():                                     # アプリの入口
             break
         elif choice == "6":
             filter_and_list(tasks)
+        elif choice == "7":
+            edit_tasks(tasks)
         else:
             print("1〜5の番号を入力してください。")
 
@@ -136,3 +159,6 @@ if __name__ == "__main__":                      # このファイルを直接実
 # 操作のたびにsave_tasks：不意の終了でもデータ消失を最小化
 # フィルタは"絞り込み→表示"の2段構え。表示ロジックは既存関数に任せ、役割分担をはっきりさせている。
 # リスト内包表現（[t for t in tasks if 条件]）は、読みやすい条件抽出の基本形
+# 「危険な操作は確認」がUIの基本
+# いったん pop してから戻せるようにしているのは、元に戻すのを簡単にするため（insert(idx, candidate)）
+# 編集について：入力→検証→反映→保存の型を身につけるため。今後GUIでも同じ発想を使う。
