@@ -9,6 +9,9 @@
 # -------------------------------
 
 #「追加」「一覧」「削除」に加えてJSONで「保存」機能を実装
+# 機能を追加：表示フィルタ（全部/未完/完了）
+# 機能を追加：削除前の確認（y/n）
+# 機能を追加：編集（タイトルを変更）
 
 import json                 # JSON形式で保存/読み込みをするための標準ライブラリ
 from pathlib import Path    # OS差を気にせず安全にパスを扱える便利なクラス
@@ -26,7 +29,7 @@ def save_tasks(tasks):          # タスク一覧をファイルへ保存する
         json.dump(tasks, f, ensure_ascii=False, indent=2)   # ensure_ascii=False: 日本語をそのまま保存。indent=2: 見やすい整形出力
 
 def show_menu(tasks):           # メニュー表示を関数にまとめて可能性を上げる
-    print(f"\n1) 追加  2) 一覧  3) 削除  4) 完了切替  5) 終了   (現在: {len(tasks)}件)")
+    print(f"\n1) 追加  2) 一覧  3) 削除  4) 完了切替  5) 終了  6) 表示切替   (現在: {len(tasks)}件)")   # 機能の追加にともない、「6) 表示切替」を追加
 
 def list_tasks(tasks):          # タスク一覧を番号付きで表示
     if not tasks:               # リストが空なら
@@ -79,6 +82,19 @@ def toggle_done(tasks):                         # 指定番号の完了/未完�
     else:
         print("その番号はありません。")
 
+def filter_and_list(tasks):                     # 機能追加：表示フィルタ
+    print("表示モードを選択してください：A) 全部  U) 未完のみ  D) 完了のみ")
+    mode = input("A/U/D: ").strip().lower()     # 前後の空白を削除し、小文字化
+
+    if mode == "u":                             # 条件に応じてフィルタリング（リスト内包表現）
+        filtered = [t for t in tasks if not t.get("done", False)]    # 未完だけ（done が False(未完) のもの）
+    elif mode == "d":
+        filtered = [t for t in tasks if t.get("done", False)]        # 完了だけ（done が True(完了) のもの）
+    else:
+        filtered = tasks                                             # それ以外の入力は全部表示（デフォルト）
+
+    list_tasks(filtered)                                          # 既存の一覧表示回数を再利用（DRYの考え方）
+
 def main():                                     # アプリの入口
     tasks = load_tasks()                        # 起動時に保存ファイルから読み込み
     while True:                                 # メニューを繰り返し表示
@@ -95,6 +111,8 @@ def main():                                     # アプリの入口
         elif choice == "5":
             print("終了します。")
             break
+        elif choice == "6":
+            filter_and_list(tasks)
         else:
             print("1〜5の番号を入力してください。")
 
@@ -109,3 +127,5 @@ if __name__ == "__main__":                      # このファイルを直接実
 # jsonとpathlib.Path:：標準ライブラリだけで安全
 # 辞書型{title, done}：将来「期限(due)」「タグ」などの拡張がしやすい
 # 操作のたびにsave_tasks：不意の終了でもデータ消失を最小化
+# フィルタは"絞り込み→表示"の2段構え。表示ロジックは既存関数に任せ、役割分担をはっきりさせている。
+# リスト内包表現（[t for t in tasks if 条件]）は、読みやすい条件抽出の基本形

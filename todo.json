@@ -9,7 +9,7 @@
   },
   {
     "title": "テスト3",
-    "done": false
+    "done": true
   },
   {
     "title": "テスト4",
@@ -18,5 +18,9 @@
   {
     "title": "テスト5",
     "done": false
+  },
+  {
+    "title": "テスト",
+    "done": true
   }
 ]
