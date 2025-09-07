@@ -121,16 +121,97 @@
 
 # ----------------------------------------------------
 
-nums = [1,2,3,4,5,6]
+# nums = [1,2,3,4,5,6]
 
-evens_1= []
-for n in nums:
-    if n % 2 == 0:
-        evens_1.append(n)
+# evens_1= []
+# for n in nums:
+#     if n % 2 == 0:
+#         evens_1.append(n)
 
-evens_2 = [n for n in nums if n % 2 == 0]   # % 2 == 0（2で割って余りが0なら偶数。%はあまりを返す演算子）
+# evens_2 = [n for n in nums if n % 2 == 0]   # % 2 == 0（2で割って余りが0なら偶数。%はあまりを返す演算子）
 
-print(evens_1)
-print(evens_2)
+# print(evens_1)
+# print(evens_2)
 
+# ----------------------------------------------------
+
+# 課題7：数当てゲームの自作
+# 目的：ゴールやプロセスを見据えて、落ち着いてコードを書く練習
+# やること：ゴールを考える→処理を考える→コードに書き起こす。
+
+# ----------------------------------------------------
+
+# 数当てゲームの処理
+
+# 処理1:抽選する値の範囲を決める
+# 処理2:ランダムに値を抽選する
+# 処理3:ユーザーに数を入力してもらう
+# 処理4:入力した数を整数に変換する
+# 処理5:入力した数と抽選した値を照合する
+# 処理6:当たれば結果を表示して終了
+# 処理7:外れていれば正解との差分を提示し再度入力へ戻る
+# 処理8:当たるまで繰り返す or 入力回数を制限する
+
+# ----------------------------------------------------
+
+# 疑似コード
+
+# 1) 定数 LOW/HIGH, MAX_TRIES を決める
+# 2) 正解 answer を randint で作る
+# 3) tries = 0
+
+# 4) while True:
+#      a) もし tries == MAX_TRIES なら「ゲームオーバー」→ 正解を表示して break
+#      b) 入力を促す（q/exit で終了可）
+#      c) もし小文字化した入力が q または exit なら「中止」→ break
+#      d) もし数字じゃない → 「数字を入力してね」→ continue
+#      e) 整数に変換 → 範囲外なら「1〜Nの範囲」→ continue
+#      f) tries を 1 増やす
+#      g) もし guess == answer → 「当たり！」→ break
+#         それ以外 → 差分 = abs(guess - answer) を表示
+#                     お好みで「大きい/小さい」ヒントも
+#                     次のループへ（continue）
+
+# ----------------------------------------------------
+
+import random
+
+LOW, HIGH = 0, 20
+MAX_TRIES = 5
+
+answer = random.randint(LOW, HIGH)
+tries = 0
+
+while True:
+    if tries == MAX_TRIES:
+        print(f"残念！{MAX_TRIES}回で当てられませんでした。正解は{answer}です。")
+        break
+
+    raw = input(f"{LOW}〜{HIGH}の整数を入力（qで終了）：").strip()
+    if raw.lower() in ("q", "exit"):
+        print("ゲームを中止しました。")
+        break
+    elif not raw.isdigit():
+        print("数字を入力してください。")
+        continue
+
+    guess = int(raw)                                    # else:の記述はなくても動作に問題ないため削除
+    if not (LOW <= guess <= HIGH):
+        print(f"{LOW}〜{HIGH}の整数を入力してください。")
+        continue
+
+    tries += 1 
+
+    if guess == answer:
+        print("当たり")
+        break
+    else:
+        diff = abs(guess - answer)
+        print(f"残念。差は{diff}です。")        # ヒントがほぼ答えになってしまうので、変数diff〜は削除したほうが良い
+        if guess < answer:
+            print("もっと大きい数です。")
+            continue
+        else:
+            print("もっと小さい数です。")
+            continue
 # ----------------------------------------------------
