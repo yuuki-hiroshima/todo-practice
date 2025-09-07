@@ -12,11 +12,27 @@
 # 機能を追加：表示フィルタ（全部/未完/完了）
 # 機能を追加：削除前の確認（y/n）
 # 機能を追加：編集（タイトルを変更）
+# 機能を追加：期限
 
 import json                 # JSON形式で保存/読み込みをするための標準ライブラリ
 from pathlib import Path    # OS差を気にせず安全にパスを扱える便利なクラス
 
+from datetime import datetime   # プログラムで日付や時間を扱うための標準ライブラリ
+
 DATA_FILE = Path("todo.json")   # 保存ファイルのパス（プロジェクト直下）
+
+def parse_due(text):            # 期限文字列を検証して有効ならそのまま返す関数
+    if not text.strip():        # 日付が空ならNone（期限なし）を返す
+        return None
+    
+    text = text.strip()         # 呼び出し側の漏れに強くなる（エラーになりにくくするため）
+
+    try:
+        datetime.strptime(text, "%Y-%m-%d")    # 文字列をdatetime型に変換し日時を返す（JSONで管理しやすくするため）
+        return text
+    except ValueError:                          # datetime型に変換できない場合のエラー処理（形式不正や存在しない日付の時）
+        print("無効です。期限なしで登録しました。")
+        return None
 
 def load_tasks():               # タスク一覧をファイルから読み込む
     if DATA_FILE.exists():      # ファイルが存在する場合だけ読み込む
@@ -37,7 +53,9 @@ def list_tasks(tasks):          # タスク一覧を番号付きで表示
         return
     for i, t in enumerate(tasks, start=1):      # 1から番号を振る( i はenumerateで受け取った番号でタスクの「番号付け」に使われる。)
         mark = "✔" if t.get("done") else "・"   # 完了ならチェックマーク( t は1件のタスクを表す辞書。t.get("done")は、tの中からdoneという値を取り出す。)
-        print(f"{i}. {mark} {t.get('title')}")  # 文字列で整形( i:タスク番号 mark:タスクの完了状態 t:タスクのタイトル)
+        due = t.get("due")                      # 期限のデータを取得
+        extra = f" (期限: {due})" if due else ""    # 期限のデータがあれば括弧で表示
+        print(f"{i}. {mark} {t.get('title')}{extra}")  # 文字列で整形( i:タスク番号 mark:タスクの完了状態 t:タスクのタイトル)
     print(f"合計 {len(tasks)}件")                # 最後に件数を表示
 
 def add_task(tasks):                           # タスクを追加し、その場で保存
@@ -45,7 +63,9 @@ def add_task(tasks):                           # タスクを追加し、その�
     if not title:                               # 空入力の拒否
         print("空のタスクは追加できません。")
         return
-    tasks.append({"title": title, "done": False})   # 辞書で状態も一緒に保持
+    due_raw = input("期限(YYYY-MM-DD, 空でなし)：")   # 期限を入力（任意）
+    due = parse_due(due_raw)                        # due_rawの日時をparse_due関数でチェックし変数dueへ格納
+    tasks.append({"title": title, "done": False, "due": due})   # 辞書で状態も一緒に保持
     save_tasks(tasks)                               # 変更を即保存（クラッシュに強い）
     print("追加しました！")
 
@@ -162,3 +182,34 @@ if __name__ == "__main__":                      # このファイルを直接実
 # 「危険な操作は確認」がUIの基本
 # いったん pop してから戻せるようにしているのは、元に戻すのを簡単にするため（insert(idx, candidate)）
 # 編集について：入力→検証→反映→保存の型を身につけるため。今後GUIでも同じ発想を使う。
+
+
+# ------------------------------------------------------------
+
+# 擬似コード
+
+# from datetime import datetime
+
+# def 期限の関数を作る
+#     if 空白のみなら期限としてNoneを返す
+#         return
+#     try:
+#         文字列の時間をdatetime型のオブジェクトに変換
+#     except エラー用のメッセージを用意
+
+# ------------------------------------------------------------
+
+# 擬似コード（改良版）
+
+# 関数 parse_due(text):
+#     入力 text から前後の空白を取り除く
+#     if text が空文字なら:
+#         return None   ← 期限なし
+
+#     try:
+#         text を "YYYY-MM-DD" 形式として datetime に変換
+#         return text   ← 検証OKなのでそのまま返す
+#     except 変換エラー:
+#         return "INVALID"   ← 呼び出し側でエラーメッセージを表示させる
+
+# ------------------------------------------------------------
