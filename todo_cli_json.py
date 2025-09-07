@@ -151,25 +151,60 @@ def filter_and_list(tasks):                     # 機能追加：表示フィル
 
     list_tasks(filtered)                                          # 既存の一覧表示回数を再利用（DRYの考え方）
 
-def edit_tasks(tasks):                          # 機能追加：編集
-    if not tasks:
+def edit_tasks(tasks):                          # 機能追加：編集（タスクのタイトルを編集する処理をまとめた関数）
+    if not tasks:                               # タスクが空リストなら編集できないと判断し、すぐに終了する
         print("編集できるタスクがありません。")
         return
-    num = input("編集する番号: ")
-    if not num.isdigit():
+    num = input("編集する番号: ")                 # ユーザーに編集したいタスクの番号を聞く
+    if not num.isdigit():                       # 入力が数字かどうかを判定。数字でなければ処理を中止する。
         print("数字を入力してください。")
         return
-    idx = int(num) - 1
-    if 0 <= idx < len(tasks):
-        old = tasks[idx].get("title")
-        new = input(f"新しいタイトル（空でキャンセル）：（現在：{old}）>").strip()
-        if not new:
-            print("編集をキャンセルしました。")
-            return
-        tasks[idx]["title"] = new
-        save_tasks(tasks)
-        print(f"編集しました：{old} → {new}")
-    else:
+    idx = int(num) - 1                          # 入力された番号（1始まり）をPythonのリスト用インデックス（0始まり）に変換
+    if 0 <= idx < len(tasks):                   # インデックスが有効範囲内かチェック
+        old_title = tasks[idx].get("title")     # 指定したタスクの現在のタイトルを取得
+        old_due = tasks[idx].get("due")         # 指定したタスクの現在の期限を取得
+
+        new_title = input(f"新しいタイトル（空でキャンセル）：（現在：{old_title}）>").strip()  #ユーザーに新しいタイトルを入力させる。空白は削除して扱う。
+        if not new_title:                             # 新しいタイトルが空文字なら編集をやめる
+            print("タイトルの編集をキャンセルしました。")
+        else:
+            tasks[idx]["title"] = new_title     # タイトルの上書き
+            print(f"タイトルを変更しました。{old_title} → {new_title}") # 変更の可視化
+
+        due_change = input(f"期限を変更しますか？(y/n) 現在：{old_due} > ").strip().lower() # "y"のときのみ編集
+        if due_change == "y":
+            while True:                         # 入力が不正なとき再入力できるようループ
+                raw = input("新しい期限を入力（YYYY-MM-DD、空で期限なし）：").strip()   # 任意で期限入力
+                new_due = parse_due(raw)        # ここで形式の検証。空ならNone、形式不正ならメッセージを出してNoneを返す設計
+                if raw and new_due is None:     # なにかを入力したが不正な形式のとき
+                    print("もう一度、YYYY-MM-DD 形式で入力してください。例：2025-01-01")
+                    continue
+
+                tasks[idx]["due"] = new_due     # 期限を上書き
+                print(f"期限を更新しました：{old_due} → {new_due}") # 変更結果を表示
+                break                           # 期限の編集を終了
+        elif due_change == "n":                 # 変更しない明示
+            print("期限の変更はありません。")
+        else:
+            print("y または n を入力してください。（今回は期限変更なしとして続行します）")  # 想定外入力のフォールバック
+        
+        save_tasks(tasks)                       # タイトル/期限のいずれかを変更した可能性があるので保存
+        print("編集を保存しました。")              # 保存完了のフィードバック
+
+        # idx_due = idx.get("due")                                     # 独自で追記するも動作せず
+        # due_change = input(f"期限：{idx_due}も変更しますか？(y/n):")
+        # if due_change == "y":
+        #     new_due = input(f"新しい期限（YYYY-MM-DD）：(現在：{idx_due}) >")
+        #     if not new_due:
+        #         print("期限の編集はキャンセルしました。")
+        #         return
+        #     tasks["due"] = new_due
+        #     save_tasks(tasks)
+        #     print(f"期限を{idx_due}から{new_due}に変更しました。")
+        # else:
+        #     print("期限の変更はなしです。")                              # 追記終わり
+        
+    else:                                       # もし入力番号が範囲外だった場合のエラーメッセージ
         print("その番号はありません。")
 
 def main():                                     # アプリの入口
