@@ -13,6 +13,7 @@
 # 機能を追加：削除前の確認（y/n）
 # 機能を追加：編集（タイトルを変更）
 # 機能を追加：期限
+# 機能を追加：並べ替え（ソート）
 
 import json                 # JSON形式で保存/読み込みをするための標準ライブラリ
 from pathlib import Path    # OS差を気にせず安全にパスを扱える便利なクラス
@@ -33,6 +34,35 @@ def parse_due(text):            # 期限文字列を検証して有効ならそ�
     except ValueError:                          # datetime型に変換できない場合のエラー処理（形式不正や存在しない日付の時）
         print("無効です。期限なしで登録しました。")
         return None
+    
+def sort_key(t):                                # 並べ替えのルールを1ヶ所に集約する関数
+    done_key = 0 if not t.get("done", False) else 1 # 未完は0、完了は1 → 未完が先にくる
+    due = t.get("due")                          # 期限文字列（YYYY-MM-DD or None）を取得
+    due_key = (due is None, due or "")          # （True/False, 文字列）で比較 → None(期限なし)は末尾へ
+    title_key = t.get("title", "")              # 同点字のタイブレークとしてタイトルの昇順にする
+    return (done_key, due_key, title_key)       # このタプル順に昇順ソートされる
+
+def sort_and_list(tasks):                       # 並べ替えを実行してから一覧表示する関数
+    tasks_sorted = sorted(tasks, key=sort_key)  # 先に定義した sort_ key を使って並び替え（sortedは元のリストを変更せず、新しいリストを返す（＝表示だけ並び替え））
+    print("\n(並び替え) 未完優先 → 期限昇順 → タイトル昇順")    # なに順かをユーザーに明示
+    list_tasks(tasks_sorted)                    # 既存の一覧表示関数を再利用（DRYの原則）
+
+def search_tasks_cs(tasks):                     # 大文字小文字を区別（Case Sensitive）する検索
+    if not tasks:                               # データが無ければ早期リターン
+        print("タスクはありません。")
+        return
+    q = input("検索キーワード（大文字・小文字区別）：").strip() # キーワードをそのまま保持
+    if not q:                                             # 空入力は弾く
+        print("キーワードを入力してください。")
+        return
+    
+    hits = [t for t in tasks if q in t.get("title", "")]    # 欠損に備えて .get(..., "")で保険
+
+    if not hits:                                            # ヒットなしのときの案内
+        print("該当するタスクはありません。")
+        return
+    print(f"\n[検索結果] キーワード： {q}    ({len(hits)}件)")  # ヒットした件数を明示
+    list_tasks(hits)                                        # 既存の一覧表示を再利用（DRY）
 
 def load_tasks():               # タスク一覧をファイルから読み込む
     if DATA_FILE.exists():      # ファイルが存在する場合だけ読み込む
@@ -45,7 +75,7 @@ def save_tasks(tasks):          # タスク一覧をファイルへ保存する
         json.dump(tasks, f, ensure_ascii=False, indent=2)   # ensure_ascii=False: 日本語をそのまま保存。indent=2: 見やすい整形出力
 
 def show_menu(tasks):           # メニュー表示を関数にまとめて可能性を上げる
-    print(f"\n1) 追加  2) 一覧  3) 削除  4) 完了切替  5) 終了  6) 表示切替  7) 編集   (現在: {len(tasks)}件)")   # 機能の追加にともない、「6) 表示切替」「7) 編集」を追加
+    print(f"\n1) 追加  2) 一覧  3) 削除  4) 完了切替  5) 終了  6) 表示切替  7) 編集  8) 並べ替え  9) 検索   (現在: {len(tasks)}件)")   # 機能の追加にともない、「6) 表示切替」「7) 編集」「8) 並べ替え」「9) 検索」を追加
 
 def list_tasks(tasks):          # タスク一覧を番号付きで表示
     if not tasks:               # リストが空なら
@@ -81,7 +111,6 @@ def remove_task(tasks):                         # 指定番号のタスクを削
     if 0 <= idx < len(tasks):                   # 範囲のチェック
         candidate = tasks.pop(idx)                # 機能追加：削除前に確認する機能。popは取り除いた要素を返す
         title = candidate.get("title")
-
         confirm = input(f"本当に削除しますか？（y/n）：{title} > ").strip().lower()
         if confirm == "y":
             save_tasks(tasks)                       # 保存
@@ -102,7 +131,7 @@ def toggle_done(tasks):                         # 指定番号の完了/未完�
         return
     idx = int(num) - 1
     if 0 <= idx < len(tasks):
-        tasks[idx]["done"] = not tasks[idx].get("done,False")   # True/Falseを反転
+        tasks[idx]["done"] = not tasks[idx].get("done, False")   # True/Falseを反転
         save_tasks(tasks)
         state = "完了" if tasks[idx]["done"] else "未完"
         print(f"切り替えました：{tasks[idx]['title']} → {state}")
@@ -132,7 +161,7 @@ def edit_tasks(tasks):                          # 機能追加：編集
         return
     idx = int(num) - 1
     if 0 <= idx < len(tasks):
-        old = tasks(idx).get("title")
+        old = tasks[idx].get("title")
         new = input(f"新しいタイトル（空でキャンセル）：（現在：{old}）>").strip()
         if not new:
             print("編集をキャンセルしました。")
@@ -163,6 +192,10 @@ def main():                                     # アプリの入口
             filter_and_list(tasks)
         elif choice == "7":
             edit_tasks(tasks)
+        elif choice == "8":
+            sort_and_list(tasks)
+        elif choice == "9":
+            search_tasks_cs(tasks)
         else:
             print("1〜5の番号を入力してください。")
 
@@ -185,6 +218,8 @@ if __name__ == "__main__":                      # このファイルを直接実
 
 
 # ------------------------------------------------------------
+
+# 期限の機能を追加
 
 # 擬似コード
 
