@@ -8,11 +8,13 @@
 # Custom GPT「GPTs学習パート2」より
 # --------------------------------
 
+# gui_app.pyがGUIファイル
+
 from pathlib import Path            # ファイルパスを安全に扱うための標準ライブラリ（OSの違いを気にせずパスが使える）
 import json                         # タスクをJSON形式で保存/読み込みするための標準ライブラリ
 from datetime import datetime       # 期限（YYYY-MM-DD）の形式チェックに使う
 
-DATA_FILE = Path(__file__).parnet / "todo.json" # スクリプトのある場所基準に固定（VScodeの実行場所差を吸収）
+DATA_FILE = Path(__file__).parent / "todo.json" # スクリプトのある場所基準に固定（VScodeの実行場所差を吸収）
 
 def load_tasks():                               # タスク一覧をJSONファイルから読み込む（ファイルがなければ空リスト）
     if DATA_FILE.exists():                      # 指定したパスがファイルとして存在するかをチェック
