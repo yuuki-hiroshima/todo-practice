@@ -5,7 +5,7 @@
 # All rights reserved.
 
 # -------------------------------
-# Custom GPT「ToDoリスト学習」より
+# Custom GPT「GPTs学習パート1」より
 # -------------------------------
 
 #「追加」「一覧」「削除」に加えてJSONで「保存」機能を実装
@@ -131,7 +131,7 @@ def toggle_done(tasks):                         # 指定番号の完了/未完�
         return
     idx = int(num) - 1
     if 0 <= idx < len(tasks):
-        tasks[idx]["done"] = not tasks[idx].get("done, False")   # True/Falseを反転
+        tasks[idx]["done"] = not tasks[idx].get("done", False)   # True/Falseを反転
         save_tasks(tasks)
         state = "完了" if tasks[idx]["done"] else "未完"
         print(f"切り替えました：{tasks[idx]['title']} → {state}")
