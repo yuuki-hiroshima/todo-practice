@@ -56,3 +56,21 @@ def removed_task_core(tasks: list, index: int) -> tuple[list, dict]:    # tasks:
         raise IndexError("指定したインデックスが範囲外です。")                # GUI側でメッセージを表示する。
     removed = tasks.pop(index)                                          # "pop"で要素を取り除き、取り除いた要素を受け取る。
     return tasks, removed                                               # （更新後リスト, 削除したタスク）を返す。
+
+def toggle_done_core(tasks: list, index: int) -> list:                  # タスク一覧と番号を受け取り、指定されたタスクの"done"を反転させ、更新後のリストを返す。（チェックリストのマークをON/OFFで切り替えるような動作）
+    if not (0 <= index < len(tasks)):                                   # indexが0以上で、かつタスクリストの長さ未満かをチェック
+        raise IndexError("指定したインデックスが範囲外です。")                # 範囲外アクセスを防ぐためエラーを発生させる。
+    current = tasks[index].get("done", False)                           # 指定されたタスクの"done"状態を取得。なければデフォルトでFalse（未完了）とする。
+    tasks[index]["done"] = not current                                  # "done"の値を反転させる。TrueならFalseに、FalseならTrueに切り替える。
+    return tasks                                                        # 更新されたタスクリスト全体を返す。
+
+def edet_task_core(tasks: list, index: int, new_title: str | None = None, new_due: str | None = None) -> list:  # タイトルと期限を必要な方だけ上書きする。（どちらもNoneならなにもしない）
+    if not (0 <= index < len(tasks)):                                   # indexが0以上で、かつタスクリストの長さ未満かをチェック
+        raise IndexError("指定インデックスが範囲外です。")                   # 範囲外アクセスを防ぐためエラーを発生させる。
+    if new_title is not None:                                           # 新しいタイトルが入力されたら処理を進める。Noneなら変更はしない。
+        title_clean = new_title.strip()                                 # 渡されたタイトルの文字列の前後にある空白を削除
+        if title_clean:                                                 # 空文字でなければ（有効なタイトルがある場合のみ）処理をおこなう。
+            tasks[index]["title"] = title_clean                         # リスト指定されたタスクのタイトルを新しいものに置き換える。
+            if new_due is not None:                                     # さらに新しい期限が指定されている場合は期限も更新する。
+                tasks[index]["due"] = parse_due(new_due)                # parse_due関数を使って新しい期限文字列を検証し、正しい形式ならセットする。
+            return tasks                                                # 更新が終わったタスクリスト全体を返す。
