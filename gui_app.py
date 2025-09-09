@@ -27,7 +27,7 @@ import tkinter as tk                # Tkinter本体（GUIの基礎部品）
 from tkinter import messagebox      # メッセージダイアログ表示用
 from tkinter import simpledialog    # 追加：簡易入力ダイアログで編集時に使う
 from service_core import(           # コア関数群をインポート（GUIは入出力だけ担当）
-    load_tasks, save_tasks, add_task_core, remove_task_core, format_item_for_listbox, toggle_done_core, edit_task_core  # service_core.py（クラス）で作成した関数を必要医応じて追加
+    load_tasks, save_tasks, add_task_core, remove_task_core, format_item_for_listbox, toggle_done_core, edit_task_core, sort_key  # service_core.py（クラス）で作成した関数を必要医応じて追加
 )
 
 # ====== アプリ全体の初期化 ======
@@ -47,6 +47,7 @@ FILTER_UNDONE = "undone"                # 追加：フィルタ定数（未完�
 FILTER_DONE = "done"                    # 追加：フィルタ定数（完了のみ）
 filter_var = tk.StringVar(value=FILTER_ALL) # 追加：現在の表示モードを保持
 search_var = tk.StringVar(value="")     # 追加：検索キーワードを保持（空文字＝検索なし）
+sort_enabled = tk.BooleanVar(value=False)   # 追加：並べ替え適用のON/OFF（初期はOFF）
 
 # ====== 画面部品の作成 ======
 
@@ -92,6 +93,12 @@ rb_all.pack(side="left")
 rb_undone.pack(side="left", padx=8)
 rb_done.pack(side="left")
 
+chk_sort = tk.Checkbutton(                                  # 追加：チェックボックス（チェック入れる部品）を作る。
+    frm_filter, text="並べ替え（未完→期限→タイトル）",           # 追加：親フレームは frm_filter。ラベル文字は「並べ替え」
+    variable=sort_enabled, onvalue=True, offvalue=False     # 追加：チェックONなら sort_enabled に True OFFなら False を入れる。
+)
+chk_sort.pack(side="left", padx=12)                         # 追加：チェックボックスを画面に配置する
+
 scroll = tk.Scrollbar(frm_mid)                              # 縦スクロールバー
 scroll.pack(side="right", fill="y")                         # 右端に縦方向いっぱいで配置
 
@@ -126,7 +133,7 @@ def refresh_listbox():                                      # 内部のtasksリ�
     view_indices.clear()                                    # 追加：地図もいったん空にする
     mode = filter_var.get()                                 # 追加：現在の表示モードを取得（all/undone/done）
     keyword = search_var.get()                              # 追加：検索キーワードを取得。空文字なら検索条件なし。
-    visible_count = 0                                       # 追加：画面に出した件数カウント（ステータス表示用）
+    candidate_indices = []                                  # 追加：「表示対象のインデックス」を作成（フィルタ＆検索）
     for i, t in enumerate(tasks):                           # 変更：タスクを先頭から順に表示
         done = t.get("done", False)                         # 追加：完了フラグを取り出す（欠損時は未完扱い）
         if mode == FILTER_UNDONE and done:                  # 追加：未完だけ表示モードのとき、完了タスクは飛ばす。
@@ -136,15 +143,19 @@ def refresh_listbox():                                      # 内部のtasksリ�
         title = t.get("title", "")                          # 追加：タスクのタイトルを取得。なければ空文字
         if keyword and (keyword not in title):              # 追加：キーワードが空でなく、かつタイトルに含まれないなら飛ばす
             continue
-        human_index = i + 1                                 # 追加：人間向けは1始まりの番号にする
-        text = f"{human_index}. {format_item_for_listbox(t)}"   # 追加：例/ human_index=2, t="買い物" → "2. 買い物" のようになります。
+        candidate_indices.append(i)                         # 追加：「この行はtasksのi番目」と記録
+    if sort_enabled.get():
+        candidate_indices.sort(key=lambda idx: sort_key(tasks[idx]))
+    for row, idx in enumerate(candidate_indices):           # 追加：画面行(row)と実データ位置(idx)
+        human_index = row + 1                               # 追加：人間向けは1始まりの番号にする
+        text = f"{human_index}. {format_item_for_listbox(tasks[idx])}"   # 追加：例/ human_index=2, t="買い物" → "2. 買い物" のようになります。
         lst.insert(tk.END, text)                            # 変更：Listboxに1行ずつ追加
-        view_indices.append(i)                              # 追加：「この行はtasksのi番目」と記録
-        visible_count += 1                                  # 追加：表示した件数を1つ増やす。
+        view_indices.append(idx)                              # 追加：「この行はtasksのi番目」と記録
+    flag = "ON" if sort_enabled.get() else "OFF"
     if keyword:
-        status_var.set(f"表示中: {visible_count}件 / 全体：{len(tasks)}件 / 検索:「{keyword}」") # 追加：ステータスは「表示中 / 総件数」を明示
+        status_var.set(f"表示中: {len(candidate_indices)}件 / 全体：{len(tasks)}件 / 検索:「{keyword}」 / 並べ替え: {flag}") # 追加：ステータスは「表示中 / 総件数」を明示
     else:
-        status_var.set(f"表示中: {visible_count}件")          # 件数をステータスに出す
+        status_var.set(f"表示中: {len(candidate_indices)}件 / 検索:「{keyword}」 / 並べ替え: {flag}")          # 件数をステータスに出す
 
 # ------ 追加（入力 → 検証 → 保存 → 再描画） ------
 
@@ -269,7 +280,12 @@ def on_delete_key(_event):                                  # キーボードの
 def on_toggle_key(_event):                                  # スペースキー → 完了切替（操作が速い）
     on_toggle_button()                                      # トグル処理を呼ぶ
         
-def on_double_click(_event):                                # 行のダブルクリック → 完了切替（直感的）
+def on_double_click(_event):                                # 行のダブルクリック → 完了切替（直感的）追記：切替が安定するように改良
+    row = lst.nearest(_event.y)                             # 追加：クリック座標yに最も近い行番号を取得
+    if row < 0:
+        return                                              # 追加：取れなければなにもしない
+    lst.selection_clear(0, tk.END)                          # 追加：既存選択をクリアする
+    lst.selection_set(row)                                  # 追加：クリック行を選択状態にする
     on_toggle_button()                                      # トグル処理を呼ぶ
 
 def on_search_button():                                     # 追加：検索ボタン押下時の処理（検索語を読んで再描画）
@@ -294,6 +310,7 @@ btn_edit.config(command=on_edit_button)                     # 追加：編集ボ
 rb_all.config(command=lambda: refresh_listbox())            # 追加：表示切替（全体）ラジオ切替で再描画
 rb_undone.config(command=lambda: refresh_listbox())         # 追加：表示切替（未完のみ）
 rb_done.config(command=lambda: refresh_listbox())           # 追加：表示切替（完了のみ）
+chk_sort.config(command=lambda: refresh_listbox())          # 追加：並べ替えON/OFFですぐ再描画
 btn_search.config(command=on_search_button)                 # 追加：検索ボタン → 検索
 btn_clear.config(command=on_clear_button)                   # 追加：解除ボタン → 解除
 ent_title.bind("<Return>", on_return_key)                   # タイトル欄でEnterキー → on_addを呼ぶ
@@ -306,6 +323,7 @@ root.bind("a", lambda e: (filter_var.set(FILTER_ALL), refresh_listbox()))       
 root.bind("u", lambda e: (filter_var.set(FILTER_UNDONE), refresh_listbox()))    # 追加：Uで表示切替（未完）
 root.bind("d", lambda e: (filter_var.set(FILTER_DONE), refresh_listbox()))      # 追加：Dで表示切替（完了）
 root.bind("/", lambda e: (ent_search.focus_set(), ent_search.select_range(0, 'end')))   # 追加：「/」で検索欄フォーカス（ショートカットキー）
+root.bind("s", lambda e: (sort_enabled.set(not sort_enabled.get()), refresh_listbox())) # 追加：「S」で並び替え（ショートカットキー）
 
 # ====== 起動時の初期表示 ======
 

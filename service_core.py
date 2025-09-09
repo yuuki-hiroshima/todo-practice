@@ -10,6 +10,12 @@
 
 # gui_app.pyがGUIファイル
 
+# --------------------------------
+
+# 並び替え機能を追加
+
+# --------------------------------
+
 from pathlib import Path            # ファイルパスを安全に扱うための標準ライブラリ（OSの違いを気にせずパスが使える）
 import json                         # タスクをJSON形式で保存/読み込みするための標準ライブラリ
 from datetime import datetime       # 期限（YYYY-MM-DD）の形式チェックに使う
@@ -76,3 +82,10 @@ def edit_task_core(tasks: list, index: int, new_title: str | None = None, new_du
             if new_due is not None:                                     # さらに新しい期限が指定されている場合は期限も更新する。
                 tasks[index]["due"] = parse_due(new_due)                # parse_due関数を使って新しい期限文字列を検証し、正しい形式ならセットする。
             return tasks                                                # 更新が終わったタスクリスト全体を返す。
+        
+def sort_key(task: dict) -> tuple:                                      # 関数追加：並べ替えのルール。（未完優先 → 期限 → タイトル）
+    done_key = 0 if not task.get("done", False) else 1                  # done が False(未完)=0, True(完了)=1 → 未完が先にくる。
+    due = task.get("due")                                               # 期限は "YYYY-MM-DD" または None。Noneは末尾へ（(True, "") > (False, "2025-01-01")）
+    due_key = (due is None, due or "")                                  # due が None（期限なし）なら (True, "")。due が日付文字列なら (False, "YYYY-MM-DD")。
+    title_key = task.get("title", "")                                   # タイトルの昇順（同点の）タイブレーク
+    return (done_key, due_key, title_key)                               # 並べ替えのキーを「タプル」で返します。
