@@ -10,19 +10,29 @@
 
 # service_core.pyがコアファイル
 
+# --------------------------------
+
+# 更新情報
+# リストに番号を表示
+# 削除ボタン実装
+
+# --------------------------------
+
 import tkinter as tk                # Tkinter本体（GUIの基礎部品）
 from tkinter import messagebox      # メッセージダイアログ表示用
 from service_core import(           # コア関数群をインポート（GUIは入出力だけ担当）
-    load_tasks, save_tasks, add_task_core, format_item_for_listbox
+    load_tasks, save_tasks, add_task_core, remove_task_core, format_item_for_listbox
 )
 
 # ====== アプリ全体の初期化 ======
 
 root = tk.Tk()                          # アプリのウィンドウを作成（Tkは1つだけ）
 root.title("ToDoリスト（MVP：表示+追加）") # ウィンドウスタイル
-root.geometry("480x360")                # 初期サイズ（大きすぎない値に）
+root.geometry("520x420")                # 初期サイズ（大きすぎない値に）
 
 tasks = load_tasks()                    # 起動時にJSONからタスク一覧を読み込む（リスト[辞書,....]）
+
+view_indices: list[int] = []            # 追加：Listboxの行番号 →　tasksのインデックスを対応付けるリスト（変数名の理由：画面に「どのタスクをどの順番で見せているか」を覚えるための"地図"）
 
 title_var = tk.StringVar()              # タイトル用の入力欄。Entryと値を同期させるための器。StringVarでバインドして扱いやすくなる。
 due_var = tk.StringVar()                # 期限の入力欄。"YYYY-MM-DD"を受け入れる想定。MVPでもいれておくと既存データと相性がいい
@@ -65,13 +75,23 @@ status_var = tk.StringVar()                                 # ステータス文
 lbl_status = tk.Label(root, textvariable=status_var, anchor="w")    # 左寄せのラベル
 lbl_status.pack(fill="x", padx=12, pady=6)                  # 横いっぱいに配置
 
+frm_bottom = tk.Frame(root)                                 # 追加：操作ボタン＋ステータスをまとめる枠
+frm_bottom.pack(fill="x", padx=12, pady=8)                  # 横いっぱい＋余白
+
+btn_delete = tk.Button(frm_bottom, text="削除", width=10)    # 追加：削除実行ボタン
+btn_delete.pack(side="left")                                # 左寄せ（よく使う操作は左に置くと目に入りやすい）
+
 # ====== 振る舞い（関数群） ======
 
 def refresh_listbox():                                      # 内部のtasksリストをもとに、Listboxの表示を作り直す（ズレ防止のため毎回クリア → 全再描画）
     lst.delete(0, tk.END)                                   # いったん全部消す
-    for t in tasks:                                         # タスクを先頭から順に表示
-        lst.insert(tk.END, format_item_for_listbox(t))      # 表示用テキストを統一フォーマットで挿入
-    status_var.set(f"現在:  {len(tasks)}件")                   # 件数をステータスに出す
+    view_indices.clear()                                    # 追加：地図もいったん空にする
+    for i, t in enumerate(tasks):                           # 変更：タスクを先頭から順に表示
+        human_index = i + 1                                 # 追加：人間向けは1始まりの番号にする
+        text = f"{human_index}. {format_item_for_listbox(t)}"   # 追加：例/ human_index=2, t="買い物" → "2. 買い物" のようになります。
+        lst.insert(tk.END, text)                            # 変更：Listboxに1行ずつ追加
+        view_indices.append(i)                              # 追加：「この行はtasksのi番目」と記録
+    status_var.set(f"現在:  {len(tasks)}件")                 # 件数をステータスに出す
 
 
 def on_add():                                               # 追加ボタン押下時（またはエンターキー）の処理：入力を検証→追加→保存→再描画
@@ -88,13 +108,42 @@ def on_add():                                               # 追加ボタン押
     due_var.set("")                                         # 期限欄もクリア
     status_var.set("保存しました。")                           # フィードバックを表示
 
-def on_return_key(event):                                   # タイトル欄でEnterをオスロ追加できるようにする（操作が快適になる）
+def on_delete():                                            # 関数追加：役割/選択行のタスクを削除→保存→再描画。選択なしなら注意表示。
+    sel = lst.curselection()                                # 選択されている行インデックスのタプルを取得（例：（0,））
+    if not sel:                                             # なにも選ばれていない場合に早期終了
+        messagebox.showinfo("削除", "削除する行を選択してください。")   # 情報タイアログを出して知らせる。selが空なら「選んでね」と表示・
+        return                                              # ここで関数を終わりにします。以降は実行しません。
+    row = sel[0]                                            # 選択はタプルなので先頭の要素だけを取り出して行番号 row にする。
+    try:                                                    # 表示用→実データ用の番号変換での範囲エラーを受け止める。
+        task_index = view_indices[row]                      # 画面の行番号 row から、tasks 内の本当の位置 task_index を引き当てる。（マッピング=対応づけ）
+    except IndexError:                                      # 行ずれなどで、インデックス外になった場合の通知と中断
+        messagebox.showwarning("エラー", "内部インデックスの整合性が取れませんでした。")    # 警告ダイアログを出します。例： row が配列外ならここに来る。
+        return                                              # ここで処理を止める。安全のため先へは進まない。
+    title = tasks[task_index].get("title", "")              # 該当タスクのタイトルを取り出す。get=「なければ既定値」。ここでは無ければ空文字 ""。
+    ok = messagebox.askyesno("確認", f"本当に削除しますか？\n\n{title}")  # 確認ダイアログ（はい/いいえ）を出して、結果 True/Falseを ok に入れる。askyesno=「はいなら True」。
+    if not ok:                                              # ユーザーが「いいえ」を選んだら中止する
+        return                                              # なにも変更せずに終わる。
+    try:                                                    # 実データからの削除で起こりうる範囲エラーを受け止める。
+        remove_task_core(tasks, task_index)                 # 実際に tasks から1件削除する。core=「中心/基幹」の処理
+    except IndexError:                                      # 想定外の行ずれで削除できなかった場合の通知
+        messagebox.showwarning("エラー", "指定行の削除に失敗しました。")    # 警告して中断する。例：task_index が配列外ならここに来る
+        return                                              # ここで処理を止める。
+    save_tasks(tasks)                                       # 変更後の tasks を保存します。save=「保存」。ファイルなどへ書き出し
+    refresh_listbox()                                       # 画面のリスト表示を作り直す。refresh=「更新/再読み込み」。番号も振り直される。
+    status_var.set(f"{title}を削除しました。")                 # 画面下などのステータス表示を更新する。set=「値を入れる」。
+
+def on_return_key(_event):                                   # タイトル欄でEnterを押すと追加できるようにする（操作が快適になる）
     on_add()                                                # 追加処理を呼ぶ
+
+def on_delete_key(_event):                                  # キーボードのDeleteキーで削除
+    on_delete()                                             # 削除処理を呼ぶだけ
 
 # ====== イベントの紐づけ ======
 
 btn_add.config(command=on_add)                              # 追加ボタン → on_addを呼ぶ
+btn_delete.config(command=on_delete)                        # 削除ボタンクリック → on_deleteを呼ぶ
 ent_title.bind("<Return>", on_return_key)                   # タイトル欄でEnterキー → on_addを呼ぶ
+root.bind("<Delete>", on_delete_key)                        # ウインドウでDeleteキー → on_deleteを呼ぶ
 
 # ====== 起動時の初期表示 ======
 

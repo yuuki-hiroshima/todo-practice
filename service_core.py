@@ -53,7 +53,7 @@ def add_task_core(tasks: list, title: str, due: str | None = None) -> list: # �
     tasks.append({"title": title_clean, "done": False, "due": due_norm})    # 新規タスクを辞書で追加
     return tasks                                                            # 更新済みリストを返す（同一オブジェクト）
 
-def removed_task_core(tasks: list, index: int) -> tuple[list, dict]:    # tasks: listから指定index(0始まり)の要素を削除して、更新後リスト"list"と削除したタスク"dict"を返す。
+def remove_task_core(tasks: list, index: int) -> tuple[list, dict]:    # tasks: listから指定index(0始まり)の要素を削除して、更新後リスト"list"と削除したタスク"dict"を返す。
     if not (0 <= index < len(tasks)):                                   # 指定したインデックスが範囲外かチェック
         raise IndexError("指定したインデックスが範囲外です。")                # GUI側でメッセージを表示する。
     removed = tasks.pop(index)                                          # "pop"で要素を取り除き、取り除いた要素を受け取る。

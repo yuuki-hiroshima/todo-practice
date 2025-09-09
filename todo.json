@@ -8,14 +8,6 @@
     "done": true
   },
   {
-    "title": "テスト4",
-    "done": false
-  },
-  {
-    "title": "テスト5",
-    "done": false
-  },
-  {
     "title": "テスト",
     "done": true
   },
@@ -53,11 +45,6 @@
     "due": null
   },
   {
-    "title": "わんわん",
-    "done": false,
-    "due": null
-  },
-  {
     "title": "さかな",
     "done": false,
     "due": null
@@ -91,5 +78,15 @@
     "title": "due-teat",
     "done": false,
     "due": "1234-12-01"
+  },
+  {
+    "title": "ベータテスト",
+    "done": false,
+    "due": "2020-02-02"
+  },
+  {
+    "title": "追加テスト",
+    "done": false,
+    "due": "2323-12-21"
   }
 ]
