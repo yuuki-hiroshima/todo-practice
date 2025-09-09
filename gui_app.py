@@ -18,6 +18,8 @@
 # 完了切替機能を実装
 # 編集機能を実装
 # 表示切替（フィルタ）機能を実装
+# 検索機能（大文字/小文字を区別と部分一致）の実装
+# 並び替え機能を追加
 
 # --------------------------------
 
@@ -44,6 +46,7 @@ FILTER_ALL = "all"                      # 追加：フィルタ定数（全部�
 FILTER_UNDONE = "undone"                # 追加：フィルタ定数（未完のみ）
 FILTER_DONE = "done"                    # 追加：フィルタ定数（完了のみ）
 filter_var = tk.StringVar(value=FILTER_ALL) # 追加：現在の表示モードを保持
+search_var = tk.StringVar(value="")     # 追加：検索キーワードを保持（空文字＝検索なし）
 
 # ====== 画面部品の作成 ======
 
@@ -69,6 +72,16 @@ btn_add.pack(side="left")                                   # 右側に配置（
 
 frm_mid = tk.Frame(root)                                    # 中段まとめ用のフレーム
 frm_mid.pack(fill="both", expand=True, padx=12, pady=4)     # 余白＋余った領域はここに広げる
+
+frm_search = tk.Frame(root)                                 # 追加：検索UIをまとめるフレーム（検索エリア（キーワード入力＋「検索」「解除」ボタン））
+frm_search.pack(fill="x", padx=12, pady=(0, 6))             # 追加：リスト直上に薄く余白
+tk.Label(frm_search, text="検索（大文字・小文字を区別）").pack(side="left") # 追加：ラベル
+ent_search = tk.Entry(frm_search, textvariable=search_var)  # 追加：キーワード入力欄
+ent_search.pack(side="left", fill="x", expand=True, padx=6) # 追加：横に伸びて入力しやすく
+btn_search = tk.Button(frm_search, text="検索", width=8)     # 追加：検索ボタン
+btn_search.pack(side="left")
+btn_clear = tk.Button(frm_search, text="解除", width=8)      # 追加：条件解除ボタン
+btn_clear.pack(side="left", padx=6)
 
 frm_filter = tk.Frame(root)                                 # 追加：フィルタ切替エリア
 frm_filter.pack(fill="x", padx=12, pady=(0, 6))             # 追加：リストの直上に薄く余白を入れて配置
@@ -111,30 +124,27 @@ lbl_status.pack(side="left", padx=12)                       # ボタンとラベ
 def refresh_listbox():                                      # 内部のtasksリストをもとに、Listboxの表示を作り直す（ズレ防止のため毎回クリア → 全再描画）
     lst.delete(0, tk.END)                                   # いったん全部消す
     view_indices.clear()                                    # 追加：地図もいったん空にする
+    mode = filter_var.get()                                 # 追加：現在の表示モードを取得（all/undone/done）
+    keyword = search_var.get()                              # 追加：検索キーワードを取得。空文字なら検索条件なし。
+    visible_count = 0                                       # 追加：画面に出した件数カウント（ステータス表示用）
     for i, t in enumerate(tasks):                           # 変更：タスクを先頭から順に表示
+        done = t.get("done", False)                         # 追加：完了フラグを取り出す（欠損時は未完扱い）
+        if mode == FILTER_UNDONE and done:                  # 追加：未完だけ表示モードのとき、完了タスクは飛ばす。
+            continue
+        if mode == FILTER_DONE and not done:                # 追加：完了だけ表示モードのとき、未完タスクは飛ばす。
+            continue
+        title = t.get("title", "")                          # 追加：タスクのタイトルを取得。なければ空文字
+        if keyword and (keyword not in title):              # 追加：キーワードが空でなく、かつタイトルに含まれないなら飛ばす
+            continue
         human_index = i + 1                                 # 追加：人間向けは1始まりの番号にする
         text = f"{human_index}. {format_item_for_listbox(t)}"   # 追加：例/ human_index=2, t="買い物" → "2. 買い物" のようになります。
         lst.insert(tk.END, text)                            # 変更：Listboxに1行ずつ追加
         view_indices.append(i)                              # 追加：「この行はtasksのi番目」と記録
-    status_var.set(f"現在:  {len(tasks)}件")                 # 件数をステータスに出す
-    
-    lst.delete(0, tk.END)                                   # 追加：表示をいったん全クリア
-    view_indices.clear()                                    # 追加：行 → tasks の対応表もリセット
-    mode = filter_var.get()                                 # 追加：現在の表示モードを取得（all/undone/done）
-    visible_count = 0                                       # 追加：画面に出した件数カウント（ステータス表示用）
-    for i, t in enumerate(tasks):                           # 追加：すべてのタスクを順にチェック
-        done = t.get("done", False)                         # 追加：完了フラグを取り出す（欠損時は未完扱い）
-        if mode == FILTER_UNDONE and done:                  # 追加：表示するかどうかを決める
-            continue
-        if mode == FILTER_DONE and not done:
-            continue
-        human_index = i + 1                                 # 追加：人間向けに1始まりに修正
-        text = f"{human_index}. {format_item_for_listbox(t)}"   # 追加：番号＋整形テキスト
-        lst.insert(tk.END,text)                             # 追加：Listboxへ追加
-        view_indices.append(i)                              # 追加：「この行は tasks の i 番目」と記録
-        visible_count += 1
-    status_var.set(f"表示中：{visible_count}件 / 全体：{len(tasks)}件") # 追加：ステータスは「表示中 / 総件数」を明示
-
+        visible_count += 1                                  # 追加：表示した件数を1つ増やす。
+    if keyword:
+        status_var.set(f"表示中: {visible_count}件 / 全体：{len(tasks)}件 / 検索:「{keyword}」") # 追加：ステータスは「表示中 / 総件数」を明示
+    else:
+        status_var.set(f"表示中: {visible_count}件")          # 件数をステータスに出す
 
 # ------ 追加（入力 → 検証 → 保存 → 再描画） ------
 
@@ -262,6 +272,19 @@ def on_toggle_key(_event):                                  # スペースキー
 def on_double_click(_event):                                # 行のダブルクリック → 完了切替（直感的）
     on_toggle_button()                                      # トグル処理を呼ぶ
 
+def on_search_button():                                     # 追加：検索ボタン押下時の処理（検索語を読んで再描画）
+    refresh_listbox()                                       # 追加：search_var の内容で即絞
+
+def on_clear_button():                                      # 追加：解除ボタン（検索語を空にして再描画）
+    search_var.set("")                                      # 追加：検索条件をリセット
+    refresh_listbox()                                       # 追加：全件（フィルタのみ）に戻す
+
+def on_search_return(_event):                               # 追加：検索欄でEnter → 検索
+    on_search_button()
+
+def on_search_escape(_event):                               # 追加：検索欄でEsc → 解除
+    on_clear_button()
+
 # ====== イベントの紐づけ ======
 
 btn_add.config(command=on_add)                              # 追加ボタン → on_addを呼ぶ
@@ -271,13 +294,18 @@ btn_edit.config(command=on_edit_button)                     # 追加：編集ボ
 rb_all.config(command=lambda: refresh_listbox())            # 追加：表示切替（全体）ラジオ切替で再描画
 rb_undone.config(command=lambda: refresh_listbox())         # 追加：表示切替（未完のみ）
 rb_done.config(command=lambda: refresh_listbox())           # 追加：表示切替（完了のみ）
+btn_search.config(command=on_search_button)                 # 追加：検索ボタン → 検索
+btn_clear.config(command=on_clear_button)                   # 追加：解除ボタン → 解除
 ent_title.bind("<Return>", on_return_key)                   # タイトル欄でEnterキー → on_addを呼ぶ
 root.bind("<Delete>", on_delete_key)                        # ウインドウでDeleteキー → on_deleteを呼ぶ
 root.bind("<space>", on_toggle_key)                         # 追加：スペースキー → 完了切替
 lst.bind("<Double-Button-1>", on_double_click)              # 追加：ダブルクリック → 完了切替
+ent_search.bind("<Return>", on_search_return)               # 追加：検索欄でEnter → 検索
+ent_search.bind("<Escape>", on_search_escape)               # 追加：検索欄でEsc → 解除
 root.bind("a", lambda e: (filter_var.set(FILTER_ALL), refresh_listbox()))       # 追加：Aで表示切替（全部）
 root.bind("u", lambda e: (filter_var.set(FILTER_UNDONE), refresh_listbox()))    # 追加：Uで表示切替（未完）
 root.bind("d", lambda e: (filter_var.set(FILTER_DONE), refresh_listbox()))      # 追加：Dで表示切替（完了）
+root.bind("/", lambda e: (ent_search.focus_set(), ent_search.select_range(0, 'end')))   # 追加：「/」で検索欄フォーカス（ショートカットキー）
 
 # ====== 起動時の初期表示 ======
 
