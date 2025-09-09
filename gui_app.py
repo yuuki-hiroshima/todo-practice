@@ -17,6 +17,7 @@
 # 削除ボタン実装
 # 完了切替機能を実装
 # 編集機能を実装
+# 表示切替（フィルタ）機能を実装
 
 # --------------------------------
 
@@ -38,6 +39,11 @@ view_indices: list[int] = []            # 追加：Listboxの行番号 →　tas
 
 title_var = tk.StringVar()              # タイトル用の入力欄。Entryと値を同期させるための器。StringVarでバインドして扱いやすくなる。
 due_var = tk.StringVar()                # 期限の入力欄。"YYYY-MM-DD"を受け入れる想定。MVPでもいれておくと既存データと相性がいい
+
+FILTER_ALL = "all"                      # 追加：フィルタ定数（全部）
+FILTER_UNDONE = "undone"                # 追加：フィルタ定数（未完のみ）
+FILTER_DONE = "done"                    # 追加：フィルタ定数（完了のみ）
+filter_var = tk.StringVar(value=FILTER_ALL) # 追加：現在の表示モードを保持
 
 # ====== 画面部品の作成 ======
 
@@ -63,6 +69,15 @@ btn_add.pack(side="left")                                   # 右側に配置（
 
 frm_mid = tk.Frame(root)                                    # 中段まとめ用のフレーム
 frm_mid.pack(fill="both", expand=True, padx=12, pady=4)     # 余白＋余った領域はここに広げる
+
+frm_filter = tk.Frame(root)                                 # 追加：フィルタ切替エリア
+frm_filter.pack(fill="x", padx=12, pady=(0, 6))             # 追加：リストの直上に薄く余白を入れて配置
+rb_all = tk.Radiobutton(frm_filter, text="全部", value=FILTER_ALL, variable=filter_var)
+rb_undone = tk.Radiobutton(frm_filter, text="未完のみ", value=FILTER_UNDONE, variable=filter_var)
+rb_done = tk.Radiobutton(frm_filter, text="完了のみ", value=FILTER_DONE, variable=filter_var)
+rb_all.pack(side="left")
+rb_undone.pack(side="left", padx=8)
+rb_done.pack(side="left")
 
 scroll = tk.Scrollbar(frm_mid)                              # 縦スクロールバー
 scroll.pack(side="right", fill="y")                         # 右端に縦方向いっぱいで配置
@@ -102,6 +117,24 @@ def refresh_listbox():                                      # 内部のtasksリ�
         lst.insert(tk.END, text)                            # 変更：Listboxに1行ずつ追加
         view_indices.append(i)                              # 追加：「この行はtasksのi番目」と記録
     status_var.set(f"現在:  {len(tasks)}件")                 # 件数をステータスに出す
+    
+    lst.delete(0, tk.END)                                   # 追加：表示をいったん全クリア
+    view_indices.clear()                                    # 追加：行 → tasks の対応表もリセット
+    mode = filter_var.get()                                 # 追加：現在の表示モードを取得（all/undone/done）
+    visible_count = 0                                       # 追加：画面に出した件数カウント（ステータス表示用）
+    for i, t in enumerate(tasks):                           # 追加：すべてのタスクを順にチェック
+        done = t.get("done", False)                         # 追加：完了フラグを取り出す（欠損時は未完扱い）
+        if mode == FILTER_UNDONE and done:                  # 追加：表示するかどうかを決める
+            continue
+        if mode == FILTER_DONE and not done:
+            continue
+        human_index = i + 1                                 # 追加：人間向けに1始まりに修正
+        text = f"{human_index}. {format_item_for_listbox(t)}"   # 追加：番号＋整形テキスト
+        lst.insert(tk.END,text)                             # 追加：Listboxへ追加
+        view_indices.append(i)                              # 追加：「この行は tasks の i 番目」と記録
+        visible_count += 1
+    status_var.set(f"表示中：{visible_count}件 / 全体：{len(tasks)}件") # 追加：ステータスは「表示中 / 総件数」を明示
+
 
 # ------ 追加（入力 → 検証 → 保存 → 再描画） ------
 
@@ -235,10 +268,16 @@ btn_add.config(command=on_add)                              # 追加ボタン �
 btn_delete.config(command=on_delete_button)                 # 削除ボタンクリック → on_deleteを呼ぶ
 btn_toggle.config(command=on_toggle_button)                 # 追加：完了切替ボタン → on_toggle
 btn_edit.config(command=on_edit_button)                     # 追加：編集ボタン → on_edit_button
+rb_all.config(command=lambda: refresh_listbox())            # 追加：表示切替（全体）ラジオ切替で再描画
+rb_undone.config(command=lambda: refresh_listbox())         # 追加：表示切替（未完のみ）
+rb_done.config(command=lambda: refresh_listbox())           # 追加：表示切替（完了のみ）
 ent_title.bind("<Return>", on_return_key)                   # タイトル欄でEnterキー → on_addを呼ぶ
 root.bind("<Delete>", on_delete_key)                        # ウインドウでDeleteキー → on_deleteを呼ぶ
 root.bind("<space>", on_toggle_key)                         # 追加：スペースキー → 完了切替
 lst.bind("<Double-Button-1>", on_double_click)              # 追加：ダブルクリック → 完了切替
+root.bind("a", lambda e: (filter_var.set(FILTER_ALL), refresh_listbox()))       # 追加：Aで表示切替（全部）
+root.bind("u", lambda e: (filter_var.set(FILTER_UNDONE), refresh_listbox()))    # 追加：Uで表示切替（未完）
+root.bind("d", lambda e: (filter_var.set(FILTER_DONE), refresh_listbox()))      # 追加：Dで表示切替（完了）
 
 # ====== 起動時の初期表示 ======
 
