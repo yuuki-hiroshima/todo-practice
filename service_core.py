@@ -66,7 +66,7 @@ def toggle_done_core(tasks: list, index: int) -> list:                  # タス
     tasks[index]["done"] = not current                                  # "done"の値を反転させる。TrueならFalseに、FalseならTrueに切り替える。
     return tasks                                                        # 更新されたタスクリスト全体を返す。
 
-def edet_task_core(tasks: list, index: int, new_title: str | None = None, new_due: str | None = None) -> list:  # タイトルと期限を必要な方だけ上書きする。（どちらもNoneならなにもしない）
+def edit_task_core(tasks: list, index: int, new_title: str | None = None, new_due: str | None = None) -> list:  # タイトルと期限を必要な方だけ上書きする。（どちらもNoneならなにもしない）
     if not (0 <= index < len(tasks)):                                   # indexが0以上で、かつタスクリストの長さ未満かをチェック
         raise IndexError("指定インデックスが範囲外です。")                   # 範囲外アクセスを防ぐためエラーを発生させる。
     if new_title is not None:                                           # 新しいタイトルが入力されたら処理を進める。Noneなら変更はしない。

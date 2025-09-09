@@ -15,13 +15,16 @@
 # 更新情報
 # リストに番号を表示
 # 削除ボタン実装
+# 完了切替機能を実装
+# 編集機能を実装
 
 # --------------------------------
 
 import tkinter as tk                # Tkinter本体（GUIの基礎部品）
 from tkinter import messagebox      # メッセージダイアログ表示用
+from tkinter import simpledialog    # 追加：簡易入力ダイアログで編集時に使う
 from service_core import(           # コア関数群をインポート（GUIは入出力だけ担当）
-    load_tasks, save_tasks, add_task_core, remove_task_core, format_item_for_listbox, toggle_done_core  # service_core.py（クラス）で作成した関数を必要医応じて追加
+    load_tasks, save_tasks, add_task_core, remove_task_core, format_item_for_listbox, toggle_done_core, edit_task_core  # service_core.py（クラス）で作成した関数を必要医応じて追加
 )
 
 # ====== アプリ全体の初期化 ======
@@ -78,6 +81,9 @@ btn_delete.pack(side="left")                                # 左寄せ（よく
 
 btn_toggle = tk.Button(frm_bottom, text="完了切替", width=10)   # 追加：完了/未完トグルボタン
 btn_toggle.pack(side="left", padx=8)                        # 左寄せ＋少し余白（削除の隣に）
+
+btn_edit = tk.Button(frm_bottom, text="編集", width=10)      # 追加：編集ボタン（タイトル/期限）
+btn_edit.pack(side="left", padx=8)                          # 追加：完了切替の隣に配置
 
 status_var = tk.StringVar()                                 # ステータス表示用の可変文字（件数/保存完了など）
 lbl_status = tk.Label(root, textvariable=status_var, anchor="w")    # 左寄せのラベル
@@ -161,6 +167,54 @@ def on_toggle_button():                                     # 関数追加：完
     refresh_listbox()                                       # listbox を再描画し、表示を最新にする。チェックマークが切り替わる
     status_var.set("状態を切り替えました。")                    # 画面下部のステータス表示にメッセージを出す。
 
+# ------ 編集（ボタン用） ------
+
+def on_edit_button():                                       # 関数追加：選択行のタイトル/期限を編集する。
+    sel = lst.curselection()                                # 選択行（例：（0,））を取得
+    if not sel:                                             # 未選択なら案内して中断
+        messagebox.showinfo("編集", "編集する行を選択してください。")
+        return
+    row = sel[0]                                            # 単一選択前提で先頭のみ使用
+    try:
+        task_index = view_indices[row]                      # 表示 → 実データの位置へ変換
+    except IndexError:
+        messagebox.showwarning("エラー", "内部インデックスの整合性が取れませんでした。")
+        return
+    current = tasks[task_index]                             # 現在地（辞書）を取り出す
+    old_title = current.get("title", "")                    # 既存のタイトル
+    old_due = current.get("due")                            # 既存の期限（None または 'YYYY-MM-DD'）
+
+    new_title = simpledialog.askstring(                     # タイトル入力のダイアログ（キャンセル＝変更しない/空文字＝変更しない）
+        "タイトル編集",
+        f"新しいタイトルを入力（空欄＝変更しない）\n現在：{old_title}",
+        initialvalue=old_title
+    )
+
+    due_initial = old_due if old_due is not None else ""    # 期限入力ダイアログ（edit_task_core 側で parse_due を通すので、'YYYY-MM-DD' 以外は None になる（＝期限なし））
+    new_due = simpledialog.askstring(
+        "期限編集",
+        "新しい期限（YYYY-MM-DD）\n空欄＝期限なし／キャンセル＝変更しない",
+        initialvalue=due_initial
+    )
+
+    if new_title is None and new_due is None:               # どちらもキャンセル（None）の場合は何もしない
+        status_var.set("編集をキャンセルしました。")
+        return
+    
+    title_arg = None if (new_title is None or not new_title.strip()) else new_title # 空文字は「変更しない」にしたいので None を置き換える（タイトル）。タイトルは空を許可しない設計のため、空白・空欄は「変更なし」とする。
+
+    due_arg = new_due                                       # 期限は空欄 "" を渡すと parse_due で None（期限なし）になる。None=変更なし, ""=期限なしに変更, "YYYY-MM-DD"=その日付
+
+    try:
+        edit_task_core(tasks, task_index, title_arg, due_arg)   # コアに反映（安全な検証つき）
+    except IndexError:
+        messagebox.showwarning("エラー", "指定行の編集に失敗しました。")
+        return
+    
+    save_tasks(tasks)                                       # 変更された tasks をファイルなどに保存
+    refresh_listbox()                                       # listbox を再描画し、表示を最新にする。チェックマークが切り替わる
+    status_var.set("編集を保存しました。")                      # 画面下部のステータス表示にメッセージを出す。
+
 # ------ キー操作のハンドラ ------
 
 def on_return_key(_event):                                  # タイトル欄でEnterを押すと追加できるようにする（操作が快適になる）
@@ -180,10 +234,11 @@ def on_double_click(_event):                                # 行のダブルク
 btn_add.config(command=on_add)                              # 追加ボタン → on_addを呼ぶ
 btn_delete.config(command=on_delete_button)                 # 削除ボタンクリック → on_deleteを呼ぶ
 btn_toggle.config(command=on_toggle_button)                 # 追加：完了切替ボタン → on_toggle
+btn_edit.config(command=on_edit_button)                     # 追加：編集ボタン → on_edit_button
 ent_title.bind("<Return>", on_return_key)                   # タイトル欄でEnterキー → on_addを呼ぶ
 root.bind("<Delete>", on_delete_key)                        # ウインドウでDeleteキー → on_deleteを呼ぶ
 root.bind("<space>", on_toggle_key)                         # 追加：スペースキー → 完了切替
-lst.bind("<Double-Button-1>", on_double_click)                # 追加：ダブルクリック → 完了切替
+lst.bind("<Double-Button-1>", on_double_click)              # 追加：ダブルクリック → 完了切替
 
 # ====== 起動時の初期表示 ======
 
