@@ -56,7 +56,7 @@
   },
   {
     "title": "TEST",
-    "done": false,
+    "done": true,
     "due": null
   },
   {
@@ -86,7 +86,7 @@
   },
   {
     "title": "追加テスト",
-    "done": false,
+    "done": true,
     "due": "2323-12-21"
   }
 ]
